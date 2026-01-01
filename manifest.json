@@ -1,0 +1,32 @@
+{
+  "name": "Blessed Tab Sorter",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "description": "Groups duplicate domain tabs into their own windows, singletons together. Declutters your browser tabs efficiently.",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Sort tabs by domain",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "permissions": ["tabs", "windows"],
+  "commands": {
+    "sort-tabs": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Sort tabs by domain into windows"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
