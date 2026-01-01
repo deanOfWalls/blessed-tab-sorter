@@ -1,6 +1,6 @@
 # Blessed Tab Sorter
 
-A Chrome extension that automatically organizes your browser tabs by domain, decluttering your workspace by grouping related tabs into dedicated windows.
+A browser extension for Chrome, Brave, and other Chromium-based browsers that automatically organizes your browser tabs by domain, decluttering your workspace by grouping related tabs into dedicated windows.
 
 ## What It Does
 
@@ -31,7 +31,10 @@ The extension focuses the singleton window at the end, so you'll land on your co
 
 ## Installation
 
-1. Open Chrome and navigate to `chrome://extensions/`
+1. Open your browser (Chrome, Brave, or other Chromium-based browser) and navigate to the extensions page:
+   - **Chrome**: `chrome://extensions/`
+   - **Brave**: `brave://extensions/`
+   - **Other Chromium browsers**: `[browser-name]://extensions/`
 2. Enable "Developer mode" (toggle in the top right)
 3. Click "Load unpacked"
 4. Select the `blessed-tab-sorter` directory
