@@ -1,101 +1,49 @@
-Your desired behavior is a domain-based tab organization with this logic:
+# Blessed Tab Sorter
 
-For any domain with 2 or more open tabs → move all those tabs into their own dedicated window.
-For domains with only 1 tab → collect all those singleton tabs and put them together in one shared window (or possibly more if there are too many, but one is fine).
+A Chrome extension that automatically organizes your browser tabs by domain, decluttering your workspace by grouping related tabs into dedicated windows.
 
-This is a common way to declutter: group duplicates strictly per window, and keep uniques together without isolating them unnecessarily.
-Is this easily doable?
-Yes, very doable, and actually easier than modifying the existing Simple Tab Sorter extension in most cases.
-Why?
+## What It Does
 
-The current Simple Tab Sorter (based on its README and description) focuses on sorting tabs within the current window(s) by domain or title, while respecting Chrome's built-in tab groups and allowing some custom ordering. It does not appear to move tabs across windows or create new windows — it reorders tabs in place.
-Your feature requires creating multiple new windows and moving tabs between windows, which is outside the scope of what that extension currently does.
+Blessed Tab Sorter analyzes all your open tabs across all browser windows and reorganizes them using a simple, effective strategy:
 
-So, rather than heavily modifying that extension (which would involve rewriting large parts of its sorting logic), it's simpler and cleaner to write a small new Chrome extension from scratch tailored exactly to your needs.
-How hard is it really?
+- **Multiple tabs from the same domain** → Moved into their own dedicated window
+- **Single tabs from different domains** → Collected together in one shared window
 
-If you're comfortable with basic JavaScript: easy, ~100-200 lines of code.
-Required permissions: just "tabs" and "windows" (very standard).
-No UI needed if you trigger it with a browser action or keyboard shortcut.
-Manifest v3 compatible.
+This approach keeps duplicate tabs grouped together while avoiding unnecessary isolation of unique tabs.
 
-Rough code outline (background script)
-Here's a complete working concept you can use as a starting point:
-JavaScript// background.js (Manifest V3 service worker)
+## How It Works
 
-chrome.action.onClicked.addListener(() => {
-  sortTabsByDomainIntoWindows();
-});
+1. **Domain Analysis**: The extension scans all open tabs and groups them by their domain (e.g., `github.com`, `stackoverflow.com`)
 
-async function sortTabsByDomainIntoWindows() {
-  const tabs = await chrome.tabs.query({}); // all tabs in all windows
+2. **Window Creation**: 
+   - For each domain with 2 or more tabs, a new window is created containing only those tabs
+   - All singleton tabs (domains with only 1 tab) are collected into a single shared window
 
-  // Group tabs by domain
-  const groups = {};
-  for (const tab of tabs) {
-    let domain;
-    try {
-      domain = new URL(tab.url).hostname;
-    } catch (e) {
-      domain = 'invalid-url-' + tab.id; // handle chrome:// etc.
-    }
-    if (!groups[domain]) groups[domain] = [];
-    groups[domain].push(tab);
-  }
+3. **Automatic Sorting**: Within each window, tabs are automatically sorted by URL for easy navigation
 
-  // Separate multi-tab domains and singletons
-  const multiDomains = [];
-  const singletonTabs = [];
+4. **Smart URL Handling**: Special URLs like `chrome://`, `about:`, and extension pages are handled gracefully
 
-  for (const [domain, tabList] of Object.entries(groups)) {
-    if (tabList.length > 1) {
-      multiDomains.push({ domain, tabs: tabList });
-    } else {
-      singletonTabs.push(tabList[0]);
-    }
-  }
+## Usage
 
-  // Create windows for multi-tab domains
-  for (const { tabs } of multiDomains) {
-    if (tabs.length === 0) continue;
-    const firstTab = tabs[0];
-    const window = await chrome.windows.create({ tabId: firstTab.id });
-    const tabIds = tabs.slice(1).map(t => t.id);
-    if (tabIds.length > 0) {
-      await chrome.tabs.move(tabIds, { windowId: window.id, index: -1 });
-    }
-  }
+**Click the extension icon** in your browser toolbar, or press **`Ctrl+Shift+S`** (or **`Cmd+Shift+S`** on Mac) to instantly organize all your tabs.
 
-  // Create one window for all singletons
-  if (singletonTabs.length > 0) {
-    const firstTab = singletonTabs[0];
-    const window = await chrome.windows.create({ tabId: firstTab.id });
-    const tabIds = singletonTabs.slice(1).map(t => t.id);
-    if (tabIds.length > 0) {
-      await chrome.tabs.move(tabIds, { windowId: window.id, index: -1 });
-    }
-  }
-}
-manifest.json (minimal)
-JSON{
-  "name": "Domain Window Sorter",
-  "version": "1.0",
-  "manifest_version": 3,
-  "description": "Groups duplicate domain tabs into their own windows, singletons together.",
-  "background": {
-    "service_worker": "background.js"
-  },
-  "action": {},
-  "permissions": ["tabs", "windows"]
-}
-Load this as an unpacked extension in chrome://extensions, click the icon → it runs.
-Enhancements you could add easily
+The extension focuses the singleton window at the end, so you'll land on your collection of unique tabs after the sorting completes.
 
-Optional sorting within each new window (by URL or title).
-Focus the singleton window at the end.
-Keyboard shortcut via "commands" in manifest.
-Handle special URLs (chrome://, about:, etc.) more gracefully.
-Option to run only on current window instead of all tabs.
+## Installation
 
-If you want, I can refine this code further (e.g., add sorting inside windows, handle incognito, etc.).
-Bottom line: Yes, totally feasible and straightforward — probably 30-60 minutes to get a working version if you copy-paste and tweak. Let me know if you'd like help polishing it!2.2s
+1. Open Chrome and navigate to `chrome://extensions/`
+2. Enable "Developer mode" (toggle in the top right)
+3. Click "Load unpacked"
+4. Select the `blessed-tab-sorter` directory
+5. The extension icon will appear in your toolbar
+
+## Why Use It
+
+When you have dozens of tabs open across multiple windows, it's easy to lose track of what you're working on. Blessed Tab Sorter provides a quick way to:
+
+- **Reduce clutter** by grouping related tabs together
+- **Improve focus** by isolating domains into separate windows
+- **Save time** with one-click organization
+- **Maintain context** by keeping unique tabs accessible in one place
+
+Perfect for research sessions, multi-project workflows, or simply cleaning up after a busy browsing session.
