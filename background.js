@@ -52,41 +52,40 @@ async function sortTabsInWindow(windowId) {
 }
 
 /**
- * Main function: sorts tabs by domain into windows
+ * Processes tabs for a given incognito state (separate incognito and non-incognito)
  */
-async function sortTabsByDomainIntoWindows() {
-  try {
-    // Get all tabs across all windows
-    const tabs = await chrome.tabs.query({});
+async function processTabsByIncognitoState(tabs, isIncognito) {
+  const createdWindows = [];
+  let singletonWindowId = null;
 
-    // Group tabs by domain
-    const groups = {};
-    for (const tab of tabs) {
-      const domain = getDomain(tab.url);
-      if (!groups[domain]) {
-        groups[domain] = [];
-      }
-      groups[domain].push(tab);
+  // Group tabs by domain
+  const groups = {};
+  for (const tab of tabs) {
+    const domain = getDomain(tab.url);
+    if (!groups[domain]) {
+      groups[domain] = [];
     }
+    groups[domain].push(tab);
+  }
 
-    // Separate multi-tab domains and singletons
-    const multiDomains = [];
-    const singletonTabs = [];
+  // Separate multi-tab domains and singletons
+  const multiDomains = [];
+  const singletonTabs = [];
 
-    for (const [domain, tabList] of Object.entries(groups)) {
-      if (tabList.length > 1) {
-        multiDomains.push({ domain, tabs: tabList });
-      } else {
-        singletonTabs.push(tabList[0]);
-      }
+  for (const [domain, tabList] of Object.entries(groups)) {
+    if (tabList.length > 1) {
+      multiDomains.push({ domain, tabs: tabList });
+    } else {
+      singletonTabs.push(tabList[0]);
     }
+  }
 
-    // Create windows for multi-tab domains
-    const createdWindows = [];
-    for (const { domain, tabs } of multiDomains) {
-      if (tabs.length === 0) continue;
+  // Create windows for multi-tab domains
+  for (const { domain, tabs } of multiDomains) {
+    if (tabs.length === 0) continue;
 
-      // Create new window with first tab
+    try {
+      // Create new window with first tab (window will inherit incognito state from tab)
       const firstTab = tabs[0];
       const window = await chrome.windows.create({ 
         tabId: firstTab.id,
@@ -102,11 +101,14 @@ async function sortTabsByDomainIntoWindows() {
 
       // Sort tabs within this window by URL
       await sortTabsInWindow(window.id);
+    } catch (error) {
+      console.error(`Error processing domain ${domain} for ${isIncognito ? 'incognito' : 'normal'} tabs:`, error);
     }
+  }
 
-    // Create one window for all singletons
-    let singletonWindowId = null;
-    if (singletonTabs.length > 0) {
+  // Create one window for all singletons
+  if (singletonTabs.length > 0) {
+    try {
       const firstTab = singletonTabs[0];
       const window = await chrome.windows.create({ 
         tabId: firstTab.id,
@@ -123,14 +125,42 @@ async function sortTabsByDomainIntoWindows() {
 
       // Sort tabs within singleton window by URL
       await sortTabsInWindow(window.id);
+    } catch (error) {
+      console.error(`Error processing singletons for ${isIncognito ? 'incognito' : 'normal'} tabs:`, error);
     }
+  }
 
-    // Focus the singleton window at the end (if it exists)
-    if (singletonWindowId) {
-      await chrome.windows.update(singletonWindowId, { focused: true });
-    } else if (createdWindows.length > 0) {
+  return { createdWindows, singletonWindowId };
+}
+
+/**
+ * Main function: sorts tabs by domain into windows
+ * Handles incognito and non-incognito tabs separately
+ */
+async function sortTabsByDomainIntoWindows() {
+  try {
+    // Get all tabs across all windows (includes incognito if extension is allowed)
+    const allTabs = await chrome.tabs.query({});
+
+    // Separate incognito and non-incognito tabs
+    const normalTabs = allTabs.filter(tab => !tab.incognito);
+    const incognitoTabs = allTabs.filter(tab => tab.incognito);
+
+    // Process normal tabs and incognito tabs separately
+    const normalResult = await processTabsByIncognitoState(normalTabs, false);
+    const incognitoResult = await processTabsByIncognitoState(incognitoTabs, true);
+
+    // Focus the singleton window at the end (prefer normal over incognito)
+    if (normalResult.singletonWindowId) {
+      await chrome.windows.update(normalResult.singletonWindowId, { focused: true });
+    } else if (incognitoResult.singletonWindowId) {
+      await chrome.windows.update(incognitoResult.singletonWindowId, { focused: true });
+    } else {
       // If no singleton window, focus the last created window
-      await chrome.windows.update(createdWindows[createdWindows.length - 1], { focused: true });
+      const allCreatedWindows = [...normalResult.createdWindows, ...incognitoResult.createdWindows];
+      if (allCreatedWindows.length > 0) {
+        await chrome.windows.update(allCreatedWindows[allCreatedWindows.length - 1], { focused: true });
+      }
     }
 
   } catch (error) {
